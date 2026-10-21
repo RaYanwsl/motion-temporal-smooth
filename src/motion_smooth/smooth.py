@@ -12,22 +12,15 @@ def moving_average(values: np.ndarray, window: int = 5) -> np.ndarray:
         return values.copy()
     radius = window // 2
     padded = np.pad(values, ((radius, radius),) + ((0, 0),) * (values.ndim - 1), mode="edge")
-    kernel = np.ones(window) / window
-    flat = padded.reshape(padded.shape[0], -1)
-    smoothed = np.vstack([np.convolve(flat[:, column], kernel, mode="valid") for column in range(flat.shape[1])]).T
-    return smoothed.reshape(values.shape)
+    cumulative = np.cumsum(padded, axis=0, dtype=np.float64)
+    total = cumulative[window - 1 :].copy()
+    total[1:] -= cumulative[: total.shape[0] - 1]
+    return (total / window).reshape(values.shape).astype(values.dtype, copy=False)
 
 
 def smooth_trajectory(joints: np.ndarray, window: int = 5) -> np.ndarray:
-    """Smooth every joint, then replace the root with its own smoothed path.
-
-    Joints are (T, J, 3). The root is joint 0. Smoothing joints in the camera
-    frame already smooths the root; the second pass keeps the root from being
-    pulled by a noisy limb average.
-    """
+    """Smooth every joint, including the root. Joints are (T, J, 3)."""
 
     if joints.ndim != 3 or joints.shape[-1] != 3:
         raise ValueError("关节轨迹必须是 (T, J, 3)")
-    smoothed = moving_average(joints, window)
-    smoothed[:, 0] = moving_average(joints[:, 0], window)
-    return smoothed
+    return moving_average(joints, window)

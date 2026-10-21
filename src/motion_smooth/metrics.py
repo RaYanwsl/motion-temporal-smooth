@@ -22,16 +22,14 @@ def jitter_mm(joints: np.ndarray) -> float:
 def foot_skate_mm(joints: np.ndarray, height_m: float = 0.05) -> float:
     if joints.shape[0] < 2:
         return 0.0
-    travel = []
-    for index in range(1, joints.shape[0]):
-        for joint in FOOTS:
-            previous = joints[index - 1, joint]
-            current = joints[index, joint]
-            if previous[2] <= height_m and current[2] <= height_m:
-                travel.append(float(np.linalg.norm(current[:2] - previous[:2])))
-    if not travel:
+    feet = joints[:, FOOTS, :]
+    previous = feet[:-1]
+    current = feet[1:]
+    planted = (previous[..., 2] <= height_m) & (current[..., 2] <= height_m)
+    if not np.any(planted):
         return 0.0
-    return float(np.mean(travel) * 1000.0)
+    travel = np.linalg.norm(current[..., :2] - previous[..., :2], axis=-1)
+    return float(travel[planted].mean() * 1000.0)
 
 
 def heading_jump_deg(joints: np.ndarray) -> float:
